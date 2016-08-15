@@ -1,0 +1,11 @@
+name: Minelab
+main: minelab.Main
+version: 1.0
+load: startup
+commands:
+  dungeon:
+    description: Sends you to the dungeon!
+    usage: /dungeon
+  regenerate:
+    description: Regenerate loaded chunks!
+    usage: /regenerate
