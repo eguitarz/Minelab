@@ -1,6 +1,6 @@
 package minelab;
 
-import java.awt.Rectangle;
+import java.awt.Point;
 import java.util.Random;
 
 import org.bukkit.Location;
@@ -11,6 +11,7 @@ import org.bukkit.material.Door;
 
 import model.Cell;
 import model.Dungeon;
+import utils.IteratableRectangle;
 
 public class DungeonChunkGenerator extends ChunkGenerator {
 	
@@ -67,8 +68,8 @@ public class DungeonChunkGenerator extends ChunkGenerator {
 		}
 		
 		// build cells
-		Rectangle currentChunkRectangle = new Rectangle(cx * CHUNK_WIDTH, cz * CHUNK_WIDTH, CHUNK_WIDTH, CHUNK_WIDTH);
-		Rectangle dungeonRectangle = dungeon.getRectangle();
+		IteratableRectangle currentChunkRectangle = new IteratableRectangle(cx * CHUNK_WIDTH, cz * CHUNK_WIDTH, CHUNK_WIDTH, CHUNK_WIDTH);
+		IteratableRectangle dungeonRectangle = dungeon.getRectangle();
 		if (currentChunkRectangle.intersects(dungeonRectangle)) {
 			build(currentChunkRectangle, dungeonRectangle, chunk);
 		}
@@ -78,46 +79,45 @@ public class DungeonChunkGenerator extends ChunkGenerator {
 		
 	}
 	
-	private void build(Rectangle currentChunk, Rectangle dungeonRectangle, ChunkData chunk) {
-		Rectangle toBeFilledIn = currentChunk.intersection(dungeonRectangle);
+	private void build(IteratableRectangle currentChunk, IteratableRectangle dungeonRectangle, ChunkData chunk) {
+		IteratableRectangle toBeFilledIn = currentChunk.intersection(dungeonRectangle);
 		fillInRectangle(chunk, toBeFilledIn);
 	}
 	
-	private void fillInRectangle(ChunkData chunk, Rectangle rectangle) {
+	private void fillBlocks(ChunkData chunk, Point pos) {
 		Cell[][] source = this.dungeon.getCells();
-		int x1 = (int) rectangle.getMinX();
-		int y1 = (int) rectangle.getMinY();
-		int x2 = (int) rectangle.getMaxX();
-		int y2 = (int) rectangle.getMaxY();
-		final int HEIGHT = 4;
+		int x = pos.x;
+		int z = pos.y;
 		
-		for (int x=x1; x<x2; x++) {
-			for (int z=y1; z<y2; z++) {
-				for (int y=1; y<HEIGHT; y++) {
-					if (source[x][z] != null) {
-						Cell cell = source[x][z];
-						
-						if (cell.getMaterial() == Material.DARK_OAK_DOOR) {
-							Material material = cell.getMaterial();
-							
-							if (y == 1) {
-								Door door = new Door(material);
-								chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, door);
-							} else if (y==2) {
-								Door door = new Door(material);
-								door.setTopHalf(true);
-								chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, door);	
-							} else if (y == HEIGHT - 1) {
-								chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, Material.GLOWSTONE);
-							}
-						} else {
-							chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, cell.getMaterial());
-						}
+		final int HEIGHT = 4;
+		for (int y=1; y<HEIGHT; y++) {
+			if (source[x][z] != null) {
+				Cell cell = source[x][z];
+				
+				if (cell.getMaterial() == Material.DARK_OAK_DOOR) {
+					Material material = cell.getMaterial();
+					
+					if (y == 1) {
+						Door door = new Door(material);
+						chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, door);
+					} else if (y==2) {
+						Door door = new Door(material);
+						door.setTopHalf(true);
+						chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, door);	
+					} else if (y == HEIGHT - 1) {
+						chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, Material.GLOWSTONE);
 					}
+				} else {
+					chunk.setBlock(x % CHUNK_WIDTH, y, z % CHUNK_WIDTH, cell.getMaterial());
 				}
 			}
 		}
-		
+	}
+	
+	private void fillInRectangle(ChunkData chunk, IteratableRectangle rectangle) {
+		rectangle.getPoints().stream().forEach(
+			point -> fillBlocks(chunk, point)
+		);
 	}
 	
 	private void generateSpawn(ChunkData chunk) {

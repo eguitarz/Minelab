@@ -1,7 +1,6 @@
 package model;
 
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,23 +10,25 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.bukkit.Material;
 
 import utils.Direction;
+import utils.IteratableRectangle;
 import utils.Vector;
 
 public class Dungeon {
-	private ArrayList<Rectangle> rooms = new ArrayList<Rectangle>(100);
+	private ArrayList<IteratableRectangle> rooms = new ArrayList<IteratableRectangle>(100);
 	private Random random = new Random();
-	private int width;
-	private int height;
 	private int currentRegion = -1;
 	private final double WIND_PERCENT = 0.25;
 	private static final double EXTRA_CONNECTOR_CHANCE = 0.08;
 	private Cell[][] cells;
 	private Integer[][] regionsTable;
 	private Logger log = Logger.getLogger("Minelab");
+	private int width;
+	private int height;
 
 	public static int roomsTrialLimit = 300;
 
@@ -43,12 +44,11 @@ public class Dungeon {
 	}
 	
 	public Dungeon generate() {
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				Cell cell = new Cell(x, y);
-				cells[x][y] = cell;
+		(new IteratableRectangle(0, 0, width, height)).getPoints().stream().forEach(
+			(point) -> {
+				cells[point.x][point.y] = new Cell(point);
 			}
-		}
+		);
 
 		fillRooms(roomsTrialLimit);
 		fillTunnels();
@@ -73,16 +73,8 @@ public class Dungeon {
 	private void fillRooms(int trialLimit) {
 
 		for (int i = 0; i < trialLimit; i++) {
-			Rectangle room = createRectangle();
-			boolean isOverlap = false;
-
-			for (Iterator<Rectangle> r = rooms.iterator(); r.hasNext();) {
-				if (r.next().intersects(room)) {
-					isOverlap = true;
-					break;
-				}
-			}
-
+			IteratableRectangle room = createRectangle();
+			boolean isOverlap = rooms.stream().anyMatch((r) -> r.intersects(room));
 			if (!isOverlap) {
 				rooms.add(room);
 				markRegion();
@@ -93,9 +85,9 @@ public class Dungeon {
 	}
 
 	private void fillTunnels() {
-		Rectangle bounds = this.getRectangle();
-
+		IteratableRectangle bounds = this.getRectangle();
 		log.info("Digging tunnels");
+		
 		for (int y = 1; y < bounds.height; y += 2) {
 			for (int x = 1; x < bounds.width; x += 2) {
 				Point pos = new Point(x, y);
@@ -109,7 +101,6 @@ public class Dungeon {
 
 			}
 		}
-
 	}
 
 	private void growMaze(Cell start) {
@@ -158,42 +149,33 @@ public class Dungeon {
 	private void connectRegions() {
 		Map<Point, Set<Integer>> connectorRegions = new HashMap<Point, Set<Integer>>();
 
-		Rectangle bound = this.getRectangle();
-		int x1 = (int) (bound.getMinX() + 1);
-		int y1 = (int) (bound.getMinY() + 1);
-		int x2 = (int) (bound.getMaxX() - 1);
-		int y2 = (int) (bound.getMaxX() - 1);
-
-		for (int x = x1; x < x2; x++) {
-			for (int y = y1; y < y2; y++) {
-				if (getCell(x, y).getMaterial() != Material.STONE) {
-					continue;
-				}
-
-				Point pos = new Point(x, y);
-				Set<Integer> regions = new HashSet<Integer>();
-				for (Vector dir : Direction.CARDINAL) {
-					Point regionPos = dir.add(pos);
-					Integer region = regionsTable[regionPos.x][regionPos.y];
-					if (region != null) {
-						regions.add(region);
-					}
-				}
-
-				if (regions.size() < 2) {
-					continue;
-				}
-
-				connectorRegions.put(pos, regions);
+		IteratableRectangle bound = this.getRectangle();
+		bound.inflate(-1).getPoints().stream().forEach((pos) -> {
+			if (getCell(pos).getMaterial() != Material.STONE) {
+				return;
 			}
-		}
 
+			Set<Integer> regions = new HashSet<Integer>();
+			for (Vector dir : Direction.CARDINAL) {
+				Point regionPos = dir.add(pos);
+				Integer region = regionsTable[regionPos.x][regionPos.y];
+				if (region != null) {
+					regions.add(region);
+				}
+			}
+
+			if (regions.size() < 2) {
+				return;
+			}
+
+			connectorRegions.put(pos, regions);
+		});
+		
 		List<Point> connectors = new ArrayList<Point>();
 		Iterator<Point> connectorPointIt = connectorRegions.keySet().iterator();
 		while (connectorPointIt.hasNext()) {
 			connectors.add(connectorPointIt.next());
 		}
-		log.info("connector points:" + connectors.size());
 
 		Map<Integer, Integer> mergedRegions = new HashMap<Integer, Integer>();
 		Set<Integer> openRegions = new HashSet<Integer>();
@@ -212,12 +194,9 @@ public class Dungeon {
 			addJunction(connector);
 
 			// usually 2 regions
-			Iterator<Integer> it = connectorRegions.get(connector).iterator();
-			List<Integer> merged = new ArrayList<Integer>();
-			while (it.hasNext()) {
-				Integer region = it.next();
-				merged.add(mergedRegions.get(region));
-			}
+			List<Integer> merged = connectorRegions.get(connector).stream().map(
+				region -> mergedRegions.get(region)
+			).collect(Collectors.toList());
 
 			Integer dest = merged.remove(0);
 
@@ -263,40 +242,36 @@ public class Dungeon {
 	
 	public void removeDeadEnds() {
 	    boolean done = false;
-
+	
 	    log.info("Removing dead ends");
 	    while (!done) {
-	    	done = true;
+	    	IteratableRectangle bounds = this.getRectangle();
+	    	done = !bounds.getPoints().stream().anyMatch(
+	    		(pos) -> {
+	    			Cell currentCell = getCell(pos); 
+	    			if (currentCell.getMaterial() == Material.STONE) {
+	    				return false;
+	    			}
+	    			// If it only has one exit, it's a dead end.
+	    	        int exits = 0;
+	    	        for (Vector dir : Direction.CARDINAL) {
+	    	        	Cell suroundCell = getCell(dir.add(pos));
+	    	        	if (suroundCell.getMaterial() != Material.STONE) {
+	    				  exits++;
+	    	        	}
+	    	        }
 
-	      	Rectangle bounds = this.getRectangle();
+	    	        if (exits != 1) {
+	    	        	return false;
+	    	        }
 
-			for (int y = 1; y < bounds.height - 1; y++) {
-				for (int x = 1; x < bounds.width - 1; x++) {
-					Point pos = new Point(x, y);
-					Cell currentCell = getCell(pos); 
-					if (currentCell.getMaterial() == Material.STONE) {
-						continue;
-					}
-					// If it only has one exit, it's a dead end.
-			        int exits = 0;
-			        for (Vector dir : Direction.CARDINAL) {
-			        	Cell suroundCell = getCell(dir.add(pos));
-			        	if (suroundCell.getMaterial() != Material.STONE) {
-						  exits++;
-			        	}
-			        }
-
-			        if (exits != 1) {
-			        	continue;
-			        }
-
-			        done = false;       
-			        currentCell.setMaterial(Material.STONE);
-				}
-			}
+	    	        currentCell.setMaterial(Material.STONE);
+	    	        return true; 
+	    		} 
+	    	);
 	    }
-	}
 
+	}
 
 	private void addJunction(Point pos) {
 		double rate = random.nextDouble(); 
@@ -308,16 +283,10 @@ public class Dungeon {
 		
 	}
 
-	private void carve(Rectangle rect) {
-		int x1 = (int) rect.getMinX();
-		int y1 = (int) rect.getMinY();
-		int x2 = (int) rect.getMaxX();
-		int y2 = (int) rect.getMaxY();
-		for (int x = x1; x < x2; x++) {
-			for (int y = y1; y < y2; y++) {
-				carve(getCell(x,y));
-			}
-		}
+	private void carve(IteratableRectangle rect) {
+		rect.getPoints().stream().forEach((pos) -> {
+			carve(getCell(pos));
+		});
 	}
 
 	private void carve(Cell cell) {
@@ -342,7 +311,7 @@ public class Dungeon {
 		return nextCell.getMaterial() == Material.STONE;
 	}
 
-	private Rectangle createRectangle() {
+	private IteratableRectangle createRectangle() {
 		final int MIN_LENGTH = 5;
 		final int MAX_LENGTH = 13;
 
@@ -353,7 +322,7 @@ public class Dungeon {
 		height = height % 2 == 0 ? height + 1 : height;
 		int x = (random.nextInt(this.getWidth() - width) / 2) * 2 + 1;
 		int y = (random.nextInt(this.getHeight() - height) / 2) * 2 + 1;
-		return new Rectangle(x, y, width, height);
+		return new IteratableRectangle(x, y, width, height);
 	}
 
 	public void markRegion() {
@@ -368,7 +337,7 @@ public class Dungeon {
 		return height;
 	}
 
-	public Rectangle getRectangle() {
-		return new Rectangle(0, 0, this.width, this.height);
+	public IteratableRectangle getRectangle() {
+		return new IteratableRectangle(0, 0, width, height);
 	}
 }
