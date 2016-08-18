@@ -1,4 +1,4 @@
-package utils;
+package minelab.utils;
 
 import java.awt.Point;
 

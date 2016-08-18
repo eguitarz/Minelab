@@ -1,4 +1,4 @@
-package model;
+package minelab.model;
 
 import java.awt.Point;
 import java.util.ArrayList;
@@ -14,25 +14,25 @@ import java.util.stream.Collectors;
 
 import org.bukkit.Material;
 
-import utils.Direction;
-import utils.IteratableRectangle;
-import utils.Vector;
+import minelab.utils.Direction;
+import minelab.utils.IteratableRectangle;
+import minelab.utils.Vector;
 
-public class Dungeon {
+public class BasicDungeon implements Dungeon {
 	private ArrayList<IteratableRectangle> rooms = new ArrayList<IteratableRectangle>(100);
 	private Random random = new Random();
 	private int currentRegion = -1;
 	private final double WIND_PERCENT = 0.25;
 	private static final double EXTRA_CONNECTOR_CHANCE = 0.08;
-	private Cell[][] cells;
-	private Integer[][] regionsTable;
+	protected Cell[][] cells;
+	protected Integer[][] regionsTable;
 	private Logger log = Logger.getLogger("Minelab");
-	private int width;
-	private int height;
+	protected int width;
+	protected int height;
 
 	public static int roomsTrialLimit = 300;
-
-	public Dungeon(int width, int height) {
+	
+	public BasicDungeon(int width, int height) {
 		if (width % 2 == 0 || height % 2 == 0) {
 			log.warning("Dungeon size should be odd, this dungeon will have some flaws");
 		}
@@ -85,7 +85,7 @@ public class Dungeon {
 	}
 
 	private void fillTunnels() {
-		IteratableRectangle bounds = this.getRectangle();
+		IteratableRectangle bounds = this.getBounds();
 		log.info("Digging tunnels");
 		
 		for (int y = 1; y < bounds.height; y += 2) {
@@ -149,7 +149,7 @@ public class Dungeon {
 	private void connectRegions() {
 		Map<Point, Set<Integer>> connectorRegions = new HashMap<Point, Set<Integer>>();
 
-		IteratableRectangle bound = this.getRectangle();
+		IteratableRectangle bound = this.getBounds();
 		bound.inflate(-1).getPoints().stream().forEach((pos) -> {
 			if (getCell(pos).getMaterial() != Material.STONE) {
 				return;
@@ -240,12 +240,12 @@ public class Dungeon {
 
 	}
 	
-	public void removeDeadEnds() {
+	private void removeDeadEnds() {
 	    boolean done = false;
 	
 	    log.info("Removing dead ends");
 	    while (!done) {
-	    	IteratableRectangle bounds = this.getRectangle();
+	    	IteratableRectangle bounds = this.getBounds();
 	    	done = !bounds.getPoints().stream().anyMatch(
 	    		(pos) -> {
 	    			Cell currentCell = getCell(pos); 
@@ -301,7 +301,7 @@ public class Dungeon {
 		Point pos = cell.getPosition();
 
 		// check if in bounds
-		if (!getRectangle().contains(threeSteps.add(pos))) {
+		if (!getBounds().contains(threeSteps.add(pos))) {
 			return false;
 		}
 
@@ -337,7 +337,7 @@ public class Dungeon {
 		return height;
 	}
 
-	public IteratableRectangle getRectangle() {
+	public IteratableRectangle getBounds() {
 		return new IteratableRectangle(0, 0, width, height);
 	}
 }

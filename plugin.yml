@@ -1,5 +1,5 @@
 name: Minelab
-main: minelab.Main
+main: minelab.plugin.Main
 version: 1.0
 load: startup
 commands:

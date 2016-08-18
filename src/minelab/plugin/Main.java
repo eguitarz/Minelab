@@ -1,4 +1,4 @@
-package minelab;
+package minelab.plugin;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
@@ -15,7 +15,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import model.Dungeon;
+import minelab.model.Dungeon;
+import minelab.model.WidePathDungeon;
 
 
 public class Main extends JavaPlugin implements Listener {
@@ -35,6 +36,11 @@ public class Main extends JavaPlugin implements Listener {
 		}
 		
 		if(cmd.getName().equalsIgnoreCase("regenerate")){
+			ChunkGenerator generator = world.getGenerator();
+			if (generator instanceof DungeonChunkGenerator) {
+				Dungeon dungeon = new WidePathDungeon(55, 55);
+				((DungeonChunkGenerator) generator).setDungeon(dungeon.generate());
+			}
 			regenerateLoadedChunks(world);
 			return true;
 		}
@@ -43,12 +49,12 @@ public class Main extends JavaPlugin implements Listener {
 	}
 	
 	public static Dungeon getDungeon() {
-		return (new Dungeon(55, 55)).generate();
+		return (new WidePathDungeon(65, 65)).generate();
 	}
 	
 	public static World getWorld() {
         if (world == null) {
-        	WorldCreator wc = new WorldCreator("Dungeon");
+        	WorldCreator wc = new WorldCreator("dungeon");
         	wc.generator(new DungeonChunkGenerator(getDungeon()));
         	world = Bukkit.getServer().createWorld(wc);
         }

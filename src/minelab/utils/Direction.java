@@ -1,4 +1,4 @@
-package utils;
+package minelab.utils;
 
 public enum Direction {
 	NORTH, EAST, WEST, SOUTH;

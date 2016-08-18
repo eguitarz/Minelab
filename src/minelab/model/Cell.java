@@ -1,4 +1,4 @@
-package model;
+package minelab.model;
 
 import java.awt.Point;
 
@@ -25,7 +25,7 @@ public class Cell {
 	}
 	
 	public Point getPosition() {
-		return position;
+		return (Point) position.clone();
 	}
 	
 	public void setLocation(Point location) {

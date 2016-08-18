@@ -1,4 +1,4 @@
-package minelab;
+package minelab.plugin;
 
 import java.awt.Point;
 import java.util.Random;
@@ -9,9 +9,10 @@ import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.material.Door;
 
-import model.Cell;
-import model.Dungeon;
-import utils.IteratableRectangle;
+import minelab.model.Cell;
+import minelab.model.Dungeon;
+import minelab.model.WidePathDungeon;
+import minelab.utils.IteratableRectangle;
 
 public class DungeonChunkGenerator extends ChunkGenerator {
 	
@@ -69,7 +70,7 @@ public class DungeonChunkGenerator extends ChunkGenerator {
 		
 		// build cells
 		IteratableRectangle currentChunkRectangle = new IteratableRectangle(cx * CHUNK_WIDTH, cz * CHUNK_WIDTH, CHUNK_WIDTH, CHUNK_WIDTH);
-		IteratableRectangle dungeonRectangle = dungeon.getRectangle();
+		IteratableRectangle dungeonRectangle = dungeon.getBounds();
 		if (currentChunkRectangle.intersects(dungeonRectangle)) {
 			build(currentChunkRectangle, dungeonRectangle, chunk);
 		}
@@ -132,6 +133,14 @@ public class DungeonChunkGenerator extends ChunkGenerator {
 	public Location getFixedSpawnLocation(World world, Random random) {
 		Location spawn = new Location(world, 7, 5, 7);
 		return spawn;
+	}
+
+	public Dungeon getDungeon() {
+		return dungeon;
+	}
+
+	public void setDungeon(Dungeon dungeon) {
+		this.dungeon = dungeon;
 	}
 	
 }
