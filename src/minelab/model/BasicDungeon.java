@@ -19,28 +19,36 @@ import minelab.utils.IteratableRectangle;
 import minelab.utils.Vector;
 
 public class BasicDungeon implements Dungeon {
-	private ArrayList<IteratableRectangle> rooms = new ArrayList<IteratableRectangle>(100);
-	private Random random = new Random();
-	private int currentRegion = -1;
-	private final double WIND_PERCENT = 0.25;
-	private static final double EXTRA_CONNECTOR_CHANCE = 0.08;
+	private static double WIND_PERCENT = 0.25;
+	private static double EXTRA_CONNECTOR_CHANCE = 0.04;
+	private static int ROOMS_TRIAL_LIMIT = 300;
+	
+	protected ArrayList<IteratableRectangle> rooms = new ArrayList<IteratableRectangle>(100);
+	protected Random random = new Random();
+	protected int currentRegion = -1;
 	protected Cell[][] cells;
+	//protected Map<Integer, Cell[][]> layers;
 	protected Integer[][] regionsTable;
-	private Logger log = Logger.getLogger("Minelab");
+	protected Logger log = Logger.getLogger("Minelab");
 	protected int width;
 	protected int height;
-
-	public static int roomsTrialLimit = 300;
 	
 	public BasicDungeon(int width, int height) {
-		if (width % 2 == 0 || height % 2 == 0) {
-			log.warning("Dungeon size should be odd, this dungeon will have some flaws");
+		if (width % 2 == 0) {
+			width += 1;
+			log.warning("Padding width to odd: " + width);
+		}
+		
+		if (height % 2 == 0) {
+			height += 1;
+			log.warning("Padding width to odd: " + height);
 		}
 		
 		this.width = width;
 		this.height = height;
 		cells = new Cell[width][height];
 		regionsTable = new Integer[width][height];
+		//layers = new HashMap<Integer, Cell[][]>();
 	}
 	
 	public Dungeon generate() {
@@ -50,30 +58,18 @@ public class BasicDungeon implements Dungeon {
 			}
 		);
 
-		fillRooms(roomsTrialLimit);
+		fillRooms(ROOMS_TRIAL_LIMIT);
 		fillTunnels();
-		connectRegions();
+		connectRegions(EXTRA_CONNECTOR_CHANCE);
 		removeDeadEnds();
 		
 		return this;
 	}
 
-	public Cell[][] getCells() {
-		return cells;
-	}
-
-	public Cell getCell(int x, int y) {
-		return cells[x][y];
-	}
-
-	public Cell getCell(Point pos) {
-		return cells[pos.x][pos.y];
-	}
-
-	private void fillRooms(int trialLimit) {
+	protected void fillRooms(int trialLimit) {
 
 		for (int i = 0; i < trialLimit; i++) {
-			IteratableRectangle room = createRectangle();
+			IteratableRectangle room = randomRectangle(5, 13);
 			boolean isOverlap = rooms.stream().anyMatch((r) -> r.intersects(room));
 			if (!isOverlap) {
 				rooms.add(room);
@@ -84,7 +80,7 @@ public class BasicDungeon implements Dungeon {
 
 	}
 
-	private void fillTunnels() {
+	protected void fillTunnels() {
 		IteratableRectangle bounds = this.getBounds();
 		log.info("Digging tunnels");
 		
@@ -103,7 +99,7 @@ public class BasicDungeon implements Dungeon {
 		}
 	}
 
-	private void growMaze(Cell start) {
+	protected void growMaze(Cell start) {
 		List<Cell> cells = new ArrayList<Cell>();
 		Vector lastDir = null;
 
@@ -146,7 +142,7 @@ public class BasicDungeon implements Dungeon {
 		}
 	}
 
-	private void connectRegions() {
+	protected void connectRegions(double extraConnectorChance) {
 		Map<Point, Set<Integer>> connectorRegions = new HashMap<Point, Set<Integer>>();
 
 		IteratableRectangle bound = this.getBounds();
@@ -228,7 +224,7 @@ public class BasicDungeon implements Dungeon {
 					// This connecter isn't needed, but connect it occasionally
 					// so that the
 					// dungeon isn't singly-connected.
-					if (random.nextDouble() < EXTRA_CONNECTOR_CHANCE) {
+					if (random.nextDouble() < extraConnectorChance) {
 						addJunction(pos);
 					}
 					
@@ -237,10 +233,9 @@ public class BasicDungeon implements Dungeon {
 			}
 
 		}
-
 	}
 	
-	private void removeDeadEnds() {
+	protected void removeDeadEnds() {
 	    boolean done = false;
 	
 	    log.info("Removing dead ends");
@@ -273,7 +268,7 @@ public class BasicDungeon implements Dungeon {
 
 	}
 
-	private void addJunction(Point pos) {
+	protected void addJunction(Point pos) {
 		double rate = random.nextDouble(); 
 		if (rate < 0.95) {
 			getCell(pos).setMaterial(Material.AIR);
@@ -283,19 +278,19 @@ public class BasicDungeon implements Dungeon {
 		
 	}
 
-	private void carve(IteratableRectangle rect) {
+	protected void carve(IteratableRectangle rect) {
 		rect.getPoints().stream().forEach((pos) -> {
 			carve(getCell(pos));
 		});
 	}
 
-	private void carve(Cell cell) {
+	protected void carve(Cell cell) {
 		cell.setMaterial(Material.AIR);
 		Point pos = cell.getPosition();
 		regionsTable[pos.x][pos.y] = currentRegion;
 	}
 
-	private boolean canCarve(Cell cell, Vector direction) {
+	protected boolean canCarve(Cell cell, Vector direction) {
 		Vector twoSteps = direction.multiply(2);
 		Vector threeSteps = direction.multiply(3);
 		Point pos = cell.getPosition();
@@ -311,12 +306,10 @@ public class BasicDungeon implements Dungeon {
 		return nextCell.getMaterial() == Material.STONE;
 	}
 
-	private IteratableRectangle createRectangle() {
-		final int MIN_LENGTH = 5;
-		final int MAX_LENGTH = 13;
+	protected IteratableRectangle randomRectangle(int min, int max) {
 
-		int width = random.nextInt(MAX_LENGTH - MIN_LENGTH) + MIN_LENGTH;
-		int height = random.nextInt(MAX_LENGTH - MIN_LENGTH) + MIN_LENGTH;
+		int width = random.nextInt(max - min) + min;
+		int height = random.nextInt(max - min) + min;
 
 		width = width % 2 == 0 ? width + 1 : width;
 		height = height % 2 == 0 ? height + 1 : height;
@@ -325,8 +318,20 @@ public class BasicDungeon implements Dungeon {
 		return new IteratableRectangle(x, y, width, height);
 	}
 
-	public void markRegion() {
+	protected void markRegion() {
 		currentRegion++;
+	}
+
+	public Cell[][] getCells() {
+		return cells;
+	}
+
+	public Cell getCell(int x, int y) {
+		return cells[x][y];
+	}
+
+	public Cell getCell(Point pos) {
+		return cells[pos.x][pos.y];
 	}
 
 	public int getWidth() {
@@ -339,5 +344,43 @@ public class BasicDungeon implements Dungeon {
 
 	public IteratableRectangle getBounds() {
 		return new IteratableRectangle(0, 0, width, height);
+	}
+	
+	protected List<Cell> getSurroundingCells(Cell cell) {
+		List<Cell> cells = new ArrayList<Cell>();
+		Point pos = cell.getPosition();
+		pos.translate(1, 0); // east
+		cells.add(getCell(pos));
+		pos.translate(0, -1); // south east
+		cells.add(getCell(pos));
+		pos.translate(-1, 0); // south
+		cells.add(getCell(pos));
+		pos.translate(-1, 0); // south west
+		cells.add(getCell(pos));
+		pos.translate(0, 1); // west
+		cells.add(getCell(pos));
+		pos.translate(0, 1); // north west
+		cells.add(getCell(pos));
+		pos.translate(1, 0); // north
+		cells.add(getCell(pos));
+		pos.translate(1, 0); // north east
+		cells.add(getCell(pos));
+		
+		return cells;
+	}
+	
+	protected List<Cell> getCardinalCells(Cell cell) {
+		List<Cell> cells = new ArrayList<Cell>();
+		Point pos = cell.getPosition();
+		pos.translate(1, 0); // east
+		cells.add(getCell(pos));
+		pos.translate(-1, -1); // south
+		cells.add(getCell(pos));
+		pos.translate(-1, 1); // west
+		cells.add(getCell(pos));
+		pos.translate(1, 1); // north
+		cells.add(getCell(pos));
+		
+		return cells;
 	}
 }

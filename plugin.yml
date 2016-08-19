@@ -8,4 +8,4 @@ commands:
     usage: /dungeon
   regenerate:
     description: Regenerate loaded chunks!
-    usage: /regenerate
+    usage: /renew

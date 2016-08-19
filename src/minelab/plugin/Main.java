@@ -1,5 +1,7 @@
 package minelab.plugin;
 
+import java.util.Random;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -15,6 +17,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import minelab.model.BasicDungeon;
 import minelab.model.Dungeon;
 import minelab.model.WidePathDungeon;
 
@@ -22,6 +25,7 @@ import minelab.model.WidePathDungeon;
 public class Main extends JavaPlugin implements Listener {
 	private static World world = null;
 	public static int CHUNK_WIDTH = 16;
+	private static Random random = new Random();
 	
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
@@ -35,10 +39,29 @@ public class Main extends JavaPlugin implements Listener {
 			return true;
 		}
 		
-		if(cmd.getName().equalsIgnoreCase("regenerate")){
+		if(cmd.getName().equalsIgnoreCase("renew")){
+			int width = 55;
+			int height = 55;
+			
+			if (args != null) {
+				if (args.length >= 2) {
+					try {
+						width = Integer.parseInt(args[0]);
+						height = Integer.parseInt(args[1]);
+					} catch (Exception e) {
+						sender.sendMessage("Arguments error, using random width and height");
+					}
+				}
+			}
+			
+			Dungeon[] dungeonGenerators = new Dungeon[]{
+				new BasicDungeon(width, height),
+				new WidePathDungeon(width, height)
+			};
+			
 			ChunkGenerator generator = world.getGenerator();
 			if (generator instanceof DungeonChunkGenerator) {
-				Dungeon dungeon = new WidePathDungeon(55, 55);
+				Dungeon dungeon = dungeonGenerators[random.nextInt(dungeonGenerators.length)];
 				((DungeonChunkGenerator) generator).setDungeon(dungeon.generate());
 			}
 			regenerateLoadedChunks(world);
